@@ -58,13 +58,16 @@ class Element:
     where <sign> is optional and may include '+' or '-' while if does not appear it means '+'
     <sym_string> is the string depicts the Symbols
     <conjugate> is optional and may be '*' only, if does not appear it means that there is no conjugate sign"""
-    def __init__(self, elem_string="-h_{1-1}*"):
-        m = re.match(r"^(?P<sign>[-+]?)(?P<sym_string>.*?)(?P<conjugate>\*?)$", elem_string)
-        if not m:
-            raise ValueError('incorrect element string format')
-        self.sign = '+' if m.groupdict()['sign'] == '' else m.groupdict()['sign']
-        self.symbol = Symbol(m.groupdict()['sym_string'])
-        self.conjugate = m.groupdict()['conjugate']
+    def __init__(self, elem_string="-h_{1-1}*", is_zero=False):
+        if is_zero is True:
+            self.symbol = Symbol("0")
+        else:
+            m = re.match(r"^(?P<sign>[-+]?)(?P<sym_string>.*?)(?P<conjugate>\*?)$", elem_string)
+            if not m:
+                raise ValueError('incorrect element string format')
+            self.sign = '+' if m.groupdict()['sign'] == '' else m.groupdict()['sign']
+            self.symbol = Symbol(m.groupdict()['sym_string'])
+            self.conjugate = m.groupdict()['conjugate']
         # handle zero
         if self.symbol.letter == '0':
             self.sign, self.conjugate = '+', ''
@@ -84,8 +87,8 @@ class Element:
     def __add__(self, other):
         if not isinstance(other, Element):
             raise TypeError('other must be of type Element')
-        block = np.concatenate((Sum(self).block, Sum(other).block), axis=1).view(Block)
-        return Sum(block)
+        block = np.concatenate((mSum(self).block, mSum(other).block), axis=1).view(Block)
+        return mSum(block)
 
     def minus(self):
         res = deepcopy(self)
@@ -104,28 +107,39 @@ class Element:
             return res
         # other cases
         else:
-            res.conjugate = '*' if self.conjugate == '' else '*'
+            res.conjugate = '*' if self.conjugate == '' else ''
             return res
 
     def compare_without_sign(self, other):
         return self.conjugate == other.conjugate and self.symbol == other.symbol
 
 
-class Sum:
-    """A Sum can be a single one dimensional Block or by a single Element.
+class mSum:
+    """A mSum can be a single one dimensional Block or by a single Element.
     it represents a sum of Elements in the Block."""
-    def __init__(self, block):
+    def __init__(self, block=None, is_zero=False):
+        self.is_zero = is_zero
+        if self.is_zero is True:
+            return
         if not (isinstance(block, Block) or isinstance(block, Element)):
             raise TypeError('block must be of type Block or Element')
         if isinstance(block, Element):  # build blocks out of single element
             self.block = Block("x_{1}")
             self.block[0, 0] = block
         else:
-            self.block = block
-        if len(self.block) > 1:
-            raise ValueError('block must be 1 dimensional vector')
+            if len(block) > 1:
+                raise ValueError('block must be 1 dimensional vector')
+            # clean all zeros
+            zero_indices = []
+            for elem_ind, elem in enumerate(block[0]):
+                if elem.is_zero is True:
+                    zero_indices.append(elem_ind)
+            self.block = np.delete(block, zero_indices, 1)
+
 
     def __repr__(self):
+        if self.is_zero:
+            return '  +   0     '
         result_str = ''
         for i in range(len(self.block[0])):
             elem = self.block[0, i]
@@ -136,35 +150,45 @@ class Sum:
         return result_str
 
     def __add__(self, other):
-        if not isinstance(other, Sum):
-            raise TypeError('other must be of type Sum')
+        if not isinstance(other, mSum):
+            raise TypeError('other must be of type mSum')
+        if self.is_zero:
+            return other
+        if other.is_zero:
+            return self
         block = np.concatenate((self.block, other.block), axis=1).view(Block)
-        return Sum(block)
+        return mSum(block)
 
 
 class Phrase:
     """A Phrase can be initiated by 2 one dimensional Blocks or by 2 Elements.
     it represents a sum of products of several Elements,
     when initialized with Blocks, the sum is inner product of the two Blocks"""
-    def __init__(self, block1, block2):
-        if not (isinstance(block1, Block) and isinstance(block2, Block) or
-                isinstance(block1, Element) and isinstance(block2, Element)):
-            raise TypeError('block1 and block2 must be of type Block')
-        if isinstance(block1, Element):  # build blocks out of single elements
-            self.block1, self.block2 = Block("x_{1}"), Block("x_{2}")
-            self.block1[0, 0], self.block2[0, 0] = block1, block2
+    def __init__(self, block1=None, block2=None, is_zero=False):
+        self.is_zero = is_zero
+        if self.is_zero is True:
+            return
         else:
-            self.block1 = block1
-            self.block2 = block2
-        if len(self.block1[0]) != len(self.block2[0]) or len(self.block1) > 1 or len(self.block2) > 1:
-            raise ValueError('block1 and block2 must be 1 dimensional vector with the same size')
-        # fix sign
-        for i in range(len(self.block1[0])):
-            elem1, elem2 = self.block1[0, i], self.block2[0, i]
-            elem1.sign = '+' if elem1.sign == elem2.sign else '-'
-            elem2.sign = '+'
+            if not (isinstance(block1, Block) and isinstance(block2, Block) or
+                    isinstance(block1, Element) and isinstance(block2, Element)):
+                raise TypeError('block1 and block2 must be of type Block')
+            if isinstance(block1, Element):  # build blocks out of single elements
+                self.block1, self.block2 = Block("x_{1}"), Block("x_{2}")
+                self.block1[0, 0], self.block2[0, 0] = block1, block2
+            else:
+                self.block1 = block1
+                self.block2 = block2
+            if len(self.block1[0]) != len(self.block2[0]) or len(self.block1) > 1 or len(self.block2) > 1:
+                raise ValueError('block1 and block2 must be 1 dimensional vector with the same size')
+            # fix sign
+            for i in range(len(self.block1[0])):
+                elem1, elem2 = self.block1[0, i], self.block2[0, i]
+                elem1.sign = '+' if elem1.sign == elem2.sign else '-'
+                elem2.sign = '+'
 
     def __repr__(self):
+        if self.is_zero:
+            return '  +   0     '
         result_str = ''
         for i in range(len(self.block1[0])):
             elem1, elem2 = self.block1[0, i], self.block2[0, i]
@@ -177,16 +201,26 @@ class Phrase:
     def __add__(self, other):
         if not isinstance(other, Phrase):
             raise TypeError('other must be of type Phrase')
+        if self.is_zero:
+            return other
+        if other.is_zero:
+            return self
         block1 = np.concatenate((self.block1, other.block1), axis=1).view(Block)
         block2 = np.concatenate((self.block2, other.block2), axis=1).view(Block)
         return Phrase(block1, block2)
 
     def __len__(self):
+        if self.is_zero is True:
+            return 0
         return len(self.block1[0])
 
     def __eq__(self, other):
         """ Equality occures when the two phrases represents the same mathematical phrase while allowing
         associativity"""
+        if self.is_zero and other.is_zero:  # if both are zero
+            return True
+        if self.is_zero or other.is_zero:  # if one of them is not zero and the other is.
+            return False
         if len(self.block1[0]) != len(other.block1[0]):
             return False
         # Check for single product
@@ -226,6 +260,8 @@ class Phrase:
             return all(found_list)
 
     def conj(self):
+        if self.is_zero:
+            return self
         new_phrase = deepcopy(self)
         for x, y in zip(new_phrase.block1[0], new_phrase.block2[0]):
             x_conj, y_conj = x.conjugate, y.conjugate
@@ -236,6 +272,8 @@ class Phrase:
         return new_phrase
 
     def minus(self):
+        if self.is_zero:
+            return self
         new_phrase = deepcopy(self)
         for x in new_phrase.block1[0]:
             if x.symbol.letter != '0':
@@ -244,6 +282,8 @@ class Phrase:
         return new_phrase
 
     def is_only_zeros(self):
+        if self.is_zero:
+            return True
         for x, y in zip(self.block1[0], self.block2[0]):
             if x.symbol.letter != '0' and y.symbol.letter != '0':
                 return False
@@ -276,6 +316,20 @@ class Block(np.ndarray):
             for colInd in range(cols_count):
                 obj[rowInd, colInd] = Element(elem_strings[rowInd][colInd])
         return obj
+
+    def conj(self):
+        new_block = deepcopy(self)
+        for raw_ind, raw in enumerate(new_block):
+            for elem_ind, elem in enumerate(raw):
+                new_block[raw_ind,elem_ind] = elem.conj()
+        return new_block
+
+    def minus(self):
+        new_block = deepcopy(self)
+        for raw_ind, raw in enumerate(new_block):
+            for elem_ind, elem in enumerate(raw):
+                new_block[raw_ind,elem_ind] = elem.minus()
+        return new_block
 
     # def __str__(self):
     #     return pandas.DataFrame(self.view(np.ndarray),index=None, columns=None).to_string()
