@@ -1,14 +1,14 @@
 # Universal_Combining_Qstbc
 
 Steps:
-===================================================================================================
+==============================================================
   1. open main.py
   2. change the values of 'n_t' and 'n_r' to be the number of the transmit and receive antennas.
   3. run the program, the results are printed in the screen.
-===================================================================================================
+==============================================================
 
 Results representation:
-===================================================================================================
+==============================================================
 Symbolic representation includes:
   Target: EA-QSTBC and the "desired stream" (stream of symbols used for detection) in the MISO channel.
   Result: the proposed scheme for the MIMO channel. includes: transmission matrix, combining scheme, and channel coefficients transformation.
@@ -29,12 +29,12 @@ Symbolic representation includes:
     The stream received in rx j (and its conjugates terms) is multiplied
     from left by the corresponding combining matrix and then the results are summed up.
 
-===================================================================================================
+==============================================================
 
 Example:
-===================================================================================================
+==============================================================
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 1x0:: Combining Scheme~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 1x2:: Combining Scheme~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
  ================================= Target ==================================
 Nt = 1
 Nr = 2
@@ -69,7 +69,7 @@ Compare 'Desired Stream' and 'Received Stream':
  [ True]]
 
  ========================== Comparison Succeeded !!! ==========================
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 1x0:: Constant Matrices~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 1x2:: Constant Matrices~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
 Nt = 1
 Nr = 2
 
@@ -88,4 +88,6 @@ The stream received in rx i (and its conjugates terms) is multiplied
 Rx 0:                  Rx 1:              
 [[ 1.  0.  0.  0.]     [[0. 0. 0. 1.]     
  [ 0. -1.  0.  0.]]     [0. 0. 1. 0.]]    
+
+Process finished with exit code 0
 
